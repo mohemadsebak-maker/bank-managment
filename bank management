@@ -1,0 +1,242 @@
+#include <iostream>
+#include <fstream>
+#include <vector>
+#include <string>
+#include <iomanip>
+using namespace std;
+
+class Account {
+private:
+    int accountNumber;
+    string holderName;
+    double balance;
+
+public:
+    Account() : accountNumber(0), holderName(""), balance(0.0) {}
+
+    Account(int accNo, string name, double initialDeposit)
+        : accountNumber(accNo), holderName(name), balance(initialDeposit) {}
+
+    int getAccountNumber() const { return accountNumber; }
+    string getHolderName() const { return holderName; }
+    double getBalance() const { return balance; }
+
+    bool deposit(double amount) {
+        if (amount <= 0) {
+            cout << "Deposit amount must be positive." << endl;
+            return false;
+        }
+        balance += amount;
+        cout << "Deposited: $" << fixed << setprecision(2) << amount << endl;
+        return true;
+    }
+
+    bool withdraw(double amount) {
+        if (amount <= 0) {
+            cout << "Withdrawal amount must be positive." << endl;
+            return false;
+        }
+        if (amount > balance) {
+            cout << "Insufficient funds. Current balance: $"
+                 << fixed << setprecision(2) << balance << endl;
+            return false;
+        }
+        balance -= amount;
+        cout << "Withdrawn: $" << fixed << setprecision(2) << amount << endl;
+        return true;
+    }
+
+    void display() const {
+        cout << "Account #" << accountNumber
+             << " | " << holderName
+             << " | Balance: $" << fixed << setprecision(2) << balance << endl;
+    }
+
+    // Save account data to file
+    void saveToFile(ofstream& file) const {
+        file << accountNumber << "," << holderName << "," << balance << endl;
+    }
+};
+
+class Bank {
+private:
+    vector<Account> accounts;
+    int nextAccountNumber;
+    string dataFile;
+
+public:
+    Bank(string filename) : dataFile(filename), nextAccountNumber(1001) {
+        loadFromFile();
+    }
+
+    void createAccount() {
+        string name;
+        double deposit;
+
+        cout << "Enter account holder name: ";
+        cin.ignore();
+        getline(cin, name);
+
+        cout << "Enter initial deposit amount: $";
+        cin >> deposit;
+
+        if (deposit < 0) {
+            cout << "Initial deposit cannot be negative." << endl;
+            return;
+        }
+
+        Account newAcc(nextAccountNumber, name, deposit);
+        accounts.push_back(newAcc);
+
+        cout << "Account created successfully! Account Number: "
+             << nextAccountNumber << endl;
+        nextAccountNumber++;
+        saveToFile();
+    }
+
+    Account* findAccount(int accNo) {
+        for (int i = 0; i < accounts.size(); i++) {
+            if (accounts[i].getAccountNumber() == accNo) {
+                return &accounts[i];
+            }
+        }
+        return nullptr;
+    }
+
+    void depositMoney() {
+        int accNo;
+        double amount;
+
+        cout << "Enter account number: ";
+        cin >> accNo;
+
+        Account* acc = findAccount(accNo);
+        if (acc == nullptr) {
+            cout << "Account not found." << endl;
+            return;
+        }
+
+        cout << "Enter deposit amount: $";
+        cin >> amount;
+
+        if (acc->deposit(amount)) {
+            saveToFile();
+        }
+    }
+
+    void withdrawMoney() {
+        int accNo;
+        double amount;
+
+        cout << "Enter account number: ";
+        cin >> accNo;
+
+        Account* acc = findAccount(accNo);
+        if (acc == nullptr) {
+            cout << "Account not found." << endl;
+            return;
+        }
+
+        cout << "Enter withdrawal amount: $";
+        cin >> amount;
+
+        if (acc->withdraw(amount)) {
+            saveToFile();
+        }
+    }
+
+    void checkBalance() {
+        int accNo;
+        cout << "Enter account number: ";
+        cin >> accNo;
+
+        Account* acc = findAccount(accNo);
+        if (acc == nullptr) {
+            cout << "Account not found." << endl;
+            return;
+        }
+
+        acc->display();
+    }
+
+    void listAllAccounts() {
+        if (accounts.empty()) {
+            cout << "No accounts found." << endl;
+            return;
+        }
+
+        cout << "\n--- All Accounts ---" << endl;
+        for (const auto& acc : accounts) {
+            acc.display();
+        }
+    }
+
+    void saveToFile() {
+        ofstream file(dataFile);
+        file << nextAccountNumber << endl;
+        for (const auto& acc : accounts) {
+            acc.saveToFile(file);
+        }
+        file.close();
+    }
+
+    void loadFromFile() {
+        ifstream file(dataFile);
+        if (!file.is_open()) return;
+
+        file >> nextAccountNumber;
+        file.ignore();
+
+        string line;
+        while (getline(file, line)) {
+            if (line.empty()) continue;
+
+            int accNo;
+            string name;
+            double balance;
+
+            size_t pos1 = line.find(',');
+            size_t pos2 = line.find(',', pos1 + 1);
+
+            accNo = stoi(line.substr(0, pos1));
+            name = line.substr(pos1 + 1, pos2 - pos1 - 1);
+            balance = stod(line.substr(pos2 + 1));
+
+            accounts.push_back(Account(accNo, name, balance));
+        }
+        file.close();
+    }
+};
+
+int main() {
+    Bank bank("bank_data.txt");
+    int choice;
+
+    while (true) {
+        cout << "\n===== BANKING SYSTEM =====" << endl;
+        cout << "1. Create Account" << endl;
+        cout << "2. Deposit Money" << endl;
+        cout << "3. Withdraw Money" << endl;
+        cout << "4. Check Balance" << endl;
+        cout << "5. List All Accounts" << endl;
+        cout << "6. Exit" << endl;
+        cout << "Enter your choice: ";
+        cin >> choice;
+        cout << endl;
+
+        switch (choice) {
+            case 1: bank.createAccount(); break;
+            case 2: bank.depositMoney(); break;
+            case 3: bank.withdrawMoney(); break;
+            case 4: bank.checkBalance(); break;
+            case 5: bank.listAllAccounts(); break;
+            case 6:
+                cout << "Thank you for using our banking system!" << endl;
+                return 0;
+            default:
+                cout << "Invalid choice. Please try again." << endl;
+        }
+    }
+
+    return 0;
+}
