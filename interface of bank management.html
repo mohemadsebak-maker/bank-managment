@@ -1,0 +1,950 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VAULTLINE — Teller Terminal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#10192B;
+    --ink-deep:#0B1220;
+    --parchment:#EDE6D6;
+    --parchment-dim:#E2DAC7;
+    --ledger-green:#3F8F6B;
+    --ledger-green-dim:#2C6B4F;
+    --brass:#C79A56;
+    --brass-bright:#DDB876;
+    --rust:#B34A34;
+    --slate:#8891A0;
+    --ink-text:#1C1710;
+    --line:rgba(199,154,86,0.22);
+  }
+
+  *{box-sizing:border-box;}
+  html,body{height:100%;}
+  body{
+    margin:0;
+    background:var(--ink);
+    color:var(--parchment);
+    font-family:'IBM Plex Sans', sans-serif;
+    font-size:15px;
+    -webkit-font-smoothing:antialiased;
+  }
+  .mono{font-family:'IBM Plex Mono', monospace;}
+  ::selection{background:var(--brass); color:var(--ink-deep);}
+  *:focus-visible{outline:2px solid var(--brass-bright); outline-offset:2px;}
+  button{font-family:inherit; cursor:pointer;}
+
+  @media (prefers-reduced-motion: reduce){
+    *{animation:none !important; transition:none !important;}
+  }
+
+  .app{
+    max-width:1240px;
+    margin:0 auto;
+    padding:20px 20px 60px;
+    min-height:100%;
+  }
+
+  /* ---------- Topbar ---------- */
+  .topbar{
+    display:flex;
+    align-items:flex-end;
+    justify-content:space-between;
+    padding:6px 4px 18px;
+    border-bottom:1px solid var(--line);
+    margin-bottom:22px;
+    flex-wrap:wrap;
+    gap:14px;
+  }
+  .wordmark-block{display:flex; align-items:baseline; gap:12px;}
+  .wordmark{
+    font-family:'Fraunces', serif;
+    font-weight:700;
+    font-size:28px;
+    letter-spacing:0.5px;
+    color:var(--brass-bright);
+  }
+  .tagline{
+    font-size:12px;
+    letter-spacing:2px;
+    text-transform:uppercase;
+    color:var(--slate);
+  }
+  .topbar-right{display:flex; align-items:center; gap:28px;}
+  .stat-inline{text-align:right;}
+  .stat-inline .stat-label{
+    display:block;
+    font-size:10px;
+    letter-spacing:1.5px;
+    text-transform:uppercase;
+    color:var(--slate);
+    margin-bottom:2px;
+  }
+  .stat-inline .stat-value{
+    font-size:17px;
+    color:var(--ledger-green-dim);
+    color:var(--brass-bright);
+  }
+  .clock{font-size:13px; color:var(--slate);}
+
+  /* ---------- Body grid ---------- */
+  .body{
+    display:grid;
+    grid-template-columns:190px 1fr 300px;
+    grid-template-areas:"tabs main tape";
+    gap:20px;
+    align-items:start;
+  }
+  @media (max-width:920px){
+    .body{grid-template-columns:1fr; grid-template-areas:"tabs" "main" "tape";}
+  }
+
+  /* ---------- Tabs ---------- */
+  .tabs{
+    grid-area:tabs;
+    display:flex;
+    flex-direction:column;
+    gap:2px;
+  }
+  @media (max-width:920px){
+    .tabs{flex-direction:row; overflow-x:auto; padding-bottom:4px; gap:6px;}
+  }
+  .tab{
+    text-align:left;
+    background:transparent;
+    border:1px solid transparent;
+    border-right:none;
+    color:var(--slate);
+    padding:11px 14px;
+    font-size:13.5px;
+    letter-spacing:0.3px;
+    border-radius:6px 0 0 6px;
+    transition:background .15s, color .15s;
+    white-space:nowrap;
+  }
+  @media (max-width:920px){
+    .tab{border-radius:6px; border:1px solid var(--line);}
+  }
+  .tab:hover{color:var(--parchment); background:rgba(199,154,86,0.08);}
+  .tab.active{
+    background:var(--parchment);
+    color:var(--ink-text);
+    font-weight:600;
+  }
+  @media (max-width:920px){
+    .tab.active{background:var(--brass); color:var(--ink-deep);}
+  }
+
+  /* ---------- Ledger sheet (main) ---------- */
+  .ledger-sheet{
+    grid-area:main;
+    background:var(--parchment);
+    color:var(--ink-text);
+    border-radius:4px 10px 10px 10px;
+    padding:26px 28px 30px;
+    min-height:420px;
+    background-image:repeating-linear-gradient(
+      to bottom,
+      transparent 0px, transparent 33px,
+      rgba(28,23,16,0.055) 34px
+    );
+    background-position:0 54px;
+  }
+  .panel-title{
+    font-family:'Fraunces', serif;
+    font-weight:600;
+    font-size:22px;
+    margin:0 0 4px;
+  }
+  .panel-sub{
+    font-size:13px;
+    color:#6b5f49;
+    margin:0 0 22px;
+  }
+  .note-strip{
+    font-size:12px;
+    color:#6b5f49;
+    background:rgba(63,143,107,0.12);
+    border:1px solid rgba(63,143,107,0.3);
+    border-radius:4px;
+    padding:7px 11px;
+    margin-bottom:20px;
+    display:inline-block;
+  }
+
+  /* stat cards */
+  .stat-grid{
+    display:grid;
+    grid-template-columns:repeat(3, 1fr);
+    gap:14px;
+    margin-bottom:26px;
+  }
+  @media (max-width:600px){ .stat-grid{grid-template-columns:1fr;} }
+  .stat-card{
+    background:#fff;
+    border:1px solid rgba(28,23,16,0.09);
+    border-radius:6px;
+    padding:14px 16px;
+  }
+  .stat-card .stat-label{
+    font-size:10.5px;
+    letter-spacing:1.3px;
+    text-transform:uppercase;
+    color:#8a7c60;
+    display:block;
+    margin-bottom:6px;
+  }
+  .stat-card .stat-value{
+    font-size:22px;
+    font-weight:600;
+    color:var(--ink-text);
+  }
+
+  h3.section-heading{
+    font-size:13px;
+    letter-spacing:1px;
+    text-transform:uppercase;
+    color:#8a7c60;
+    margin:26px 0 12px;
+    font-weight:600;
+  }
+
+  /* forms */
+  .form{max-width:420px;}
+  .field{margin-bottom:16px;}
+  .field label{
+    display:block;
+    font-size:12px;
+    letter-spacing:0.5px;
+    text-transform:uppercase;
+    color:#6b5f49;
+    margin-bottom:6px;
+    font-weight:600;
+  }
+  .field input, .field select{
+    width:100%;
+    padding:10px 12px;
+    font-size:14.5px;
+    font-family:'IBM Plex Mono', monospace;
+    border:1px solid rgba(28,23,16,0.22);
+    border-radius:4px;
+    background:#fff;
+    color:var(--ink-text);
+  }
+  .field input:focus, .field select:focus{
+    border-color:var(--brass);
+  }
+  .field-hint{font-size:11.5px; color:#8a7c60; margin-top:5px;}
+  .btn{
+    padding:11px 22px;
+    border-radius:4px;
+    font-size:13.5px;
+    font-weight:600;
+    letter-spacing:0.4px;
+    border:1px solid transparent;
+  }
+  .btn-primary{
+    background:var(--ink);
+    color:var(--brass-bright);
+  }
+  .btn-primary:hover{background:var(--ink-deep);}
+  .btn-outline{
+    background:transparent;
+    border:1px solid rgba(28,23,16,0.3);
+    color:var(--ink-text);
+  }
+  .btn-sm{padding:6px 12px; font-size:12px; border-radius:3px;}
+  .error-msg{
+    color:var(--rust);
+    font-size:12.5px;
+    margin-top:10px;
+    display:none;
+  }
+  .error-msg.show{display:block;}
+
+  /* stamp confirmation */
+  .stamp-wrap{
+    display:none;
+    margin-top:22px;
+    padding:20px;
+    border:2px dashed var(--ledger-green-dim);
+    border-radius:6px;
+    background:rgba(63,143,107,0.08);
+    text-align:center;
+  }
+  .stamp-wrap.show{display:block; animation:stamp-in .35s ease-out;}
+  @keyframes stamp-in{
+    from{opacity:0; transform:scale(1.3) rotate(-8deg);}
+    to{opacity:1; transform:scale(1) rotate(-3deg);}
+  }
+  .stamp-wrap .stamp-label{
+    font-size:11px; letter-spacing:1.5px; text-transform:uppercase; color:var(--ledger-green-dim);
+  }
+  .stamp-wrap .stamp-acct{
+    font-family:'Fraunces', serif;
+    font-weight:700;
+    font-size:26px;
+    color:var(--ink-text);
+    margin:4px 0;
+  }
+
+  /* accounts table */
+  table.ledger-table{
+    width:100%;
+    border-collapse:collapse;
+    font-size:13.5px;
+  }
+  table.ledger-table th{
+    text-align:left;
+    font-size:10.5px;
+    letter-spacing:1px;
+    text-transform:uppercase;
+    color:#8a7c60;
+    padding:8px 10px;
+    border-bottom:2px solid rgba(28,23,16,0.15);
+  }
+  table.ledger-table td{
+    padding:10px 10px;
+    border-bottom:1px solid rgba(28,23,16,0.08);
+    font-family:'IBM Plex Mono', monospace;
+  }
+  table.ledger-table tbody tr{cursor:pointer;}
+  table.ledger-table tbody tr:hover{background:rgba(199,154,86,0.12);}
+  .acct-detail-row td{
+    background:rgba(28,23,16,0.03);
+    font-family:'IBM Plex Sans', sans-serif;
+    cursor:default;
+  }
+  .search-input{
+    width:100%;
+    max-width:320px;
+    padding:9px 12px;
+    margin-bottom:16px;
+    border:1px solid rgba(28,23,16,0.22);
+    border-radius:4px;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:13.5px;
+  }
+  .badge{
+    display:inline-block;
+    padding:2px 7px;
+    border-radius:3px;
+    font-size:10.5px;
+    letter-spacing:0.5px;
+    font-weight:600;
+  }
+  .badge-new{background:rgba(199,154,86,0.22); color:#8a6521;}
+  .badge-dep{background:rgba(63,143,107,0.18); color:var(--ledger-green-dim);}
+  .badge-wd{background:rgba(179,74,52,0.15); color:var(--rust);}
+
+  .empty-state{
+    padding:30px 10px;
+    text-align:center;
+    color:#8a7c60;
+    font-size:13.5px;
+  }
+
+  /* ---------- Tape (transaction ledger strip) ---------- */
+  .tape-wrap{
+    grid-area:tape;
+    background:var(--ink-deep);
+    border:1px solid var(--line);
+    border-radius:6px;
+    padding:0;
+    max-height:640px;
+    display:flex;
+    flex-direction:column;
+    overflow:hidden;
+  }
+  .tape-header{
+    font-size:11px;
+    letter-spacing:1.5px;
+    text-transform:uppercase;
+    color:var(--slate);
+    padding:14px 16px 10px;
+    border-bottom:1px dashed var(--line);
+  }
+  .tape{
+    padding:8px 0;
+    overflow-y:auto;
+  }
+  .tape-entry{
+    padding:9px 16px;
+    border-bottom:1px dashed rgba(199,154,86,0.14);
+    animation:tape-in .3s ease-out;
+    font-size:12.5px;
+  }
+  @keyframes tape-in{
+    from{opacity:0; transform:translateY(-6px);}
+    to{opacity:1; transform:none;}
+  }
+  .tape-entry .tape-top{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    margin-bottom:3px;
+  }
+  .tape-entry .tape-acct{color:var(--parchment); font-weight:500;}
+  .tape-entry .tape-amt{font-family:'IBM Plex Mono', monospace; font-weight:600;}
+  .tape-amt.credit{color:var(--ledger-green);}
+  .tape-amt.debit{color:var(--rust);}
+  .tape-entry .tape-meta{color:var(--slate); font-size:11px;}
+  .tape-empty{padding:24px 16px; color:var(--slate); font-size:12.5px;}
+
+  /* toast */
+  .toast{
+    position:fixed;
+    bottom:20px;
+    right:20px;
+    background:var(--rust);
+    color:#fff;
+    padding:12px 18px;
+    border-radius:5px;
+    font-size:13px;
+    max-width:320px;
+    box-shadow:0 6px 18px rgba(0,0,0,0.35);
+    animation:tape-in .25s ease-out;
+    z-index:50;
+  }
+
+  .loading-msg{padding:60px 10px; text-align:center; color:#8a7c60; font-size:13.5px;}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <div class="topbar">
+    <div class="wordmark-block">
+      <div class="wordmark">VAULTLINE</div>
+      <div class="tagline">Teller Terminal</div>
+    </div>
+    <div class="topbar-right">
+      <div class="stat-inline">
+        <span class="stat-label">Total Assets</span>
+        <span class="stat-value mono" id="totalAssetsTop">$0.00</span>
+      </div>
+      <div class="clock mono" id="clock"></div>
+    </div>
+  </div>
+
+  <div class="body">
+    <nav class="tabs" id="tabs">
+      <button class="tab active" data-view="dashboard">Dashboard</button>
+      <button class="tab" data-view="new-account">New Account</button>
+      <button class="tab" data-view="deposit">Deposit</button>
+      <button class="tab" data-view="withdraw">Withdraw</button>
+      <button class="tab" data-view="accounts">Accounts</button>
+    </nav>
+
+    <main class="ledger-sheet" id="mainPanel">
+      <div class="loading-msg">Loading ledger…</div>
+    </main>
+
+    <aside class="tape-wrap">
+      <div class="tape-header">Transaction Tape</div>
+      <div class="tape" id="tape">
+        <div class="tape-empty">Loading…</div>
+      </div>
+    </aside>
+  </div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  var state = { accounts: [], nextAccountNumber: 1001, transactions: [] };
+  var activeView = 'dashboard';
+  var prefillAccount = null;
+  var expandedAcct = null;
+
+  // ---------- storage ----------
+  function defaultState(){
+    return { accounts: [], nextAccountNumber: 1001, transactions: [] };
+  }
+
+  async function loadState(){
+    try{
+      var result = await window.storage.get('bank-state', true);
+      if(result && result.value){
+        state = JSON.parse(result.value);
+        if(typeof state.nextAccountNumber !== 'number') state.nextAccountNumber = 1001;
+        if(!Array.isArray(state.accounts)) state.accounts = [];
+        if(!Array.isArray(state.transactions)) state.transactions = [];
+      } else {
+        state = defaultState();
+      }
+    } catch(err){
+      state = defaultState();
+    }
+    render();
+    renderTape();
+  }
+
+  async function persist(){
+    try{
+      var result = await window.storage.set('bank-state', JSON.stringify(state), true);
+      if(!result){ showToast('Could not save — please retry that action.'); }
+    } catch(err){
+      showToast('Could not save — please retry that action.');
+    }
+  }
+
+  function showToast(msg){
+    var t = document.createElement('div');
+    t.className = 'toast';
+    t.textContent = msg;
+    document.body.appendChild(t);
+    setTimeout(function(){ t.remove(); }, 4000);
+  }
+
+  // ---------- helpers ----------
+  function fmtMoney(n){
+    return '$' + Number(n).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2});
+  }
+  function fmtDateTime(ts){
+    var d = new Date(ts);
+    return d.toLocaleString('en-US', {day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit'});
+  }
+  function fmtDateShort(ts){
+    var d = new Date(ts);
+    return d.toLocaleString('en-US', {day:'2-digit', month:'short'});
+  }
+  function totalAssets(){
+    return state.accounts.reduce(function(sum, a){ return sum + a.balance; }, 0);
+  }
+  function findAccount(accNo){
+    for(var i=0;i<state.accounts.length;i++){
+      if(state.accounts[i].accountNumber === accNo) return state.accounts[i];
+    }
+    return null;
+  }
+  function escapeHtml(s){
+    return String(s).replace(/[&<>"']/g, function(c){
+      return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+    });
+  }
+
+  // ---------- clock ----------
+  function tickClock(){
+    var el = document.getElementById('clock');
+    var d = new Date();
+    el.textContent = d.toLocaleString('en-US', {day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit', second:'2-digit'});
+  }
+  setInterval(tickClock, 1000);
+  tickClock();
+
+  // ---------- tabs ----------
+  document.getElementById('tabs').addEventListener('click', function(e){
+    var btn = e.target.closest('.tab');
+    if(!btn) return;
+    activeView = btn.getAttribute('data-view');
+    prefillAccount = null;
+    Array.prototype.forEach.call(document.querySelectorAll('.tab'), function(t){ t.classList.remove('active'); });
+    btn.classList.add('active');
+    render();
+  });
+
+  function goToView(view, acctNo){
+    activeView = view;
+    prefillAccount = acctNo || null;
+    Array.prototype.forEach.call(document.querySelectorAll('.tab'), function(t){
+      t.classList.toggle('active', t.getAttribute('data-view') === view);
+    });
+    render();
+  }
+
+  // ---------- views ----------
+  function render(){
+    var el = document.getElementById('mainPanel');
+    document.getElementById('totalAssetsTop').textContent = fmtMoney(totalAssets());
+
+    if(activeView === 'dashboard') el.innerHTML = viewDashboard();
+    else if(activeView === 'new-account') el.innerHTML = viewNewAccount();
+    else if(activeView === 'deposit') el.innerHTML = viewDeposit();
+    else if(activeView === 'withdraw') el.innerHTML = viewWithdraw();
+    else if(activeView === 'accounts') el.innerHTML = viewAccounts();
+
+    attachViewHandlers();
+  }
+
+  function viewDashboard(){
+    var avg = state.accounts.length ? (totalAssets() / state.accounts.length) : 0;
+    var recent = state.accounts.slice().sort(function(a,b){ return b.createdAt - a.createdAt; }).slice(0,3);
+
+    var recentHtml = recent.length ? recent.map(function(a){
+      return '<div style="display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid rgba(28,23,16,0.08);font-size:13.5px;">' +
+        '<span>№ <span class="mono">' + a.accountNumber + '</span> — ' + escapeHtml(a.holderName) + '</span>' +
+        '<span class="mono">' + fmtMoney(a.balance) + '</span></div>';
+    }).join('') : '<div class="empty-state">No accounts opened yet.</div>';
+
+    return '' +
+      '<h2 class="panel-title">Dashboard</h2>' +
+      '<p class="panel-sub">Live snapshot of the branch ledger.</p>' +
+      '<div class="note-strip">This ledger is shared — entries here are visible to everyone using this terminal.</div>' +
+      '<div class="stat-grid">' +
+        '<div class="stat-card"><span class="stat-label">Open Accounts</span><span class="stat-value">' + state.accounts.length + '</span></div>' +
+        '<div class="stat-card"><span class="stat-label">Total Assets</span><span class="stat-value">' + fmtMoney(totalAssets()) + '</span></div>' +
+        '<div class="stat-card"><span class="stat-label">Average Balance</span><span class="stat-value">' + fmtMoney(avg) + '</span></div>' +
+      '</div>' +
+      '<h3 class="section-heading">Recently Opened</h3>' +
+      recentHtml +
+      '<div style="margin-top:24px;display:flex;gap:10px;flex-wrap:wrap;">' +
+        '<button class="btn btn-primary" data-action="goto" data-view="new-account">Open Account</button>' +
+        '<button class="btn btn-outline" data-action="goto" data-view="deposit">Post Deposit</button>' +
+        '<button class="btn btn-outline" data-action="goto" data-view="withdraw">Post Withdrawal</button>' +
+      '</div>';
+  }
+
+  function viewNewAccount(){
+    return '' +
+      '<h2 class="panel-title">New Account</h2>' +
+      '<p class="panel-sub">Open a ledger entry for a new account holder.</p>' +
+      '<form class="form" id="newAccountForm">' +
+        '<div class="field"><label for="holderName">Account Holder Name</label>' +
+          '<input type="text" id="holderName" name="holderName" placeholder="e.g. Jane Doe" autocomplete="off">' +
+        '</div>' +
+        '<div class="field"><label for="initialDeposit">Initial Deposit</label>' +
+          '<input type="number" id="initialDeposit" name="initialDeposit" placeholder="0.00" step="0.01" min="0">' +
+          '<div class="field-hint">Enter 0.00 to open with no starting balance.</div>' +
+        '</div>' +
+        '<div class="error-msg" id="newAccountError"></div>' +
+        '<button type="submit" class="btn btn-primary">Open Account</button>' +
+      '</form>' +
+      '<div class="stamp-wrap" id="stampConfirm">' +
+        '<div class="stamp-label">Account Opened</div>' +
+        '<div class="stamp-acct mono" id="stampAcctNo"></div>' +
+        '<div style="font-size:13px;color:#6b5f49;" id="stampDetail"></div>' +
+      '</div>';
+  }
+
+  function accountOptions(selected){
+    if(!state.accounts.length){
+      return '<option value="">No accounts available</option>';
+    }
+    var sorted = state.accounts.slice().sort(function(a,b){ return a.accountNumber - b.accountNumber; });
+    return '<option value="">Select an account…</option>' + sorted.map(function(a){
+      var sel = (selected && String(selected) === String(a.accountNumber)) ? ' selected' : '';
+      return '<option value="' + a.accountNumber + '"' + sel + '>№ ' + a.accountNumber + ' — ' + escapeHtml(a.holderName) + ' (' + fmtMoney(a.balance) + ')</option>';
+    }).join('');
+  }
+
+  function viewDeposit(){
+    return '' +
+      '<h2 class="panel-title">Deposit</h2>' +
+      '<p class="panel-sub">Credit funds to an existing account.</p>' +
+      (state.accounts.length ? '' : '<div class="note-strip">No accounts exist yet. Open an account first.</div>') +
+      '<form class="form" id="depositForm">' +
+        '<div class="field"><label for="depAccount">Account</label>' +
+          '<select id="depAccount" name="depAccount">' + accountOptions(prefillAccount) + '</select>' +
+        '</div>' +
+        '<div class="field"><label for="depAmount">Deposit Amount</label>' +
+          '<input type="number" id="depAmount" name="depAmount" placeholder="0.00" step="0.01" min="0">' +
+        '</div>' +
+        '<div class="error-msg" id="depositError"></div>' +
+        '<button type="submit" class="btn btn-primary"' + (state.accounts.length ? '' : ' disabled') + '>Post Deposit</button>' +
+      '</form>' +
+      '<div class="stamp-wrap" id="stampConfirm">' +
+        '<div class="stamp-label">Deposit Posted</div>' +
+        '<div class="stamp-acct mono" id="stampAcctNo"></div>' +
+        '<div style="font-size:13px;color:#6b5f49;" id="stampDetail"></div>' +
+      '</div>';
+  }
+
+  function viewWithdraw(){
+    return '' +
+      '<h2 class="panel-title">Withdraw</h2>' +
+      '<p class="panel-sub">Debit funds from an existing account.</p>' +
+      (state.accounts.length ? '' : '<div class="note-strip">No accounts exist yet. Open an account first.</div>') +
+      '<form class="form" id="withdrawForm">' +
+        '<div class="field"><label for="wdAccount">Account</label>' +
+          '<select id="wdAccount" name="wdAccount">' + accountOptions(prefillAccount) + '</select>' +
+        '</div>' +
+        '<div class="field"><label for="wdAmount">Withdrawal Amount</label>' +
+          '<input type="number" id="wdAmount" name="wdAmount" placeholder="0.00" step="0.01" min="0">' +
+        '</div>' +
+        '<div class="error-msg" id="withdrawError"></div>' +
+        '<button type="submit" class="btn btn-primary"' + (state.accounts.length ? '' : ' disabled') + '>Post Withdrawal</button>' +
+      '</form>' +
+      '<div class="stamp-wrap" id="stampConfirm">' +
+        '<div class="stamp-label">Withdrawal Posted</div>' +
+        '<div class="stamp-acct mono" id="stampAcctNo"></div>' +
+        '<div style="font-size:13px;color:#6b5f49;" id="stampDetail"></div>' +
+      '</div>';
+  }
+
+  function viewAccounts(){
+    var q = (window.__acctSearch || '').toLowerCase();
+    var rows = state.accounts.slice().sort(function(a,b){ return a.accountNumber - b.accountNumber; });
+    if(q){
+      rows = rows.filter(function(a){
+        return String(a.accountNumber).indexOf(q) !== -1 || a.holderName.toLowerCase().indexOf(q) !== -1;
+      });
+    }
+
+    var bodyHtml;
+    if(!state.accounts.length){
+      bodyHtml = '<div class="empty-state">No accounts yet — open the first one from the New Account tab.</div>';
+    } else if(!rows.length){
+      bodyHtml = '<div class="empty-state">No accounts match “' + escapeHtml(q) + '”.</div>';
+    } else {
+      bodyHtml = '<table class="ledger-table"><thead><tr>' +
+        '<th>Acct №</th><th>Holder</th><th>Balance</th><th>Opened</th>' +
+        '</tr></thead><tbody>' +
+        rows.map(function(a){
+          var mainRow = '<tr data-action="toggle-detail" data-acct="' + a.accountNumber + '">' +
+            '<td>' + a.accountNumber + '</td>' +
+            '<td style="font-family:\'IBM Plex Sans\',sans-serif;">' + escapeHtml(a.holderName) + '</td>' +
+            '<td>' + fmtMoney(a.balance) + '</td>' +
+            '<td>' + fmtDateShort(a.createdAt) + '</td>' +
+            '</tr>';
+          var detailRow = '';
+          if(expandedAcct === a.accountNumber){
+            var txns = state.transactions.filter(function(t){ return t.accountNumber === a.accountNumber; })
+              .slice().reverse().slice(0,5);
+            var txnHtml = txns.length ? txns.map(function(t){
+              var cls = t.type === 'WD' ? 'debit' : 'credit';
+              var sign = t.type === 'WD' ? '−' : '+';
+              return '<div style="display:flex;justify-content:space-between;padding:4px 0;font-size:12.5px;">' +
+                '<span class="mono" style="color:#6b5f49;">' + fmtDateTime(t.ts) + '</span>' +
+                '<span class="mono tape-amt-local" style="color:' + (t.type==='WD' ? 'var(--rust)' : 'var(--ledger-green-dim)') + ';">' + sign + fmtMoney(t.amount) + '</span></div>';
+            }).join('') : '<div style="font-size:12.5px;color:#8a7c60;">No transactions recorded yet.</div>';
+
+            detailRow = '<tr class="acct-detail-row"><td colspan="4">' +
+              '<div style="padding:6px 4px;">' +
+              '<div style="font-size:12px;text-transform:uppercase;letter-spacing:1px;color:#8a7c60;margin-bottom:8px;">Recent activity</div>' +
+              txnHtml +
+              '<div style="margin-top:12px;display:flex;gap:8px;">' +
+                '<button class="btn btn-sm btn-outline" data-action="goto" data-view="deposit" data-acct-jump="' + a.accountNumber + '">Deposit</button>' +
+                '<button class="btn btn-sm btn-outline" data-action="goto" data-view="withdraw" data-acct-jump="' + a.accountNumber + '">Withdraw</button>' +
+              '</div>' +
+              '</div></td></tr>';
+          }
+          return mainRow + detailRow;
+        }).join('') +
+        '</tbody></table>';
+    }
+
+    return '' +
+      '<h2 class="panel-title">Accounts</h2>' +
+      '<p class="panel-sub">Every account currently on the ledger. Click a row for recent activity.</p>' +
+      '<input type="text" class="search-input mono" id="acctSearch" placeholder="Search by name or account №" value="' + escapeHtml(window.__acctSearch || '') + '">' +
+      bodyHtml;
+  }
+
+  // ---------- tape ----------
+  function renderTape(){
+    var el = document.getElementById('tape');
+    if(!state.transactions.length){
+      el.innerHTML = '<div class="tape-empty">No activity yet. Open an account or post a transaction to begin the tape.</div>';
+      return;
+    }
+    var entries = state.transactions.slice().reverse().slice(0, 40);
+    el.innerHTML = entries.map(function(t){
+      var badgeClass = t.type === 'NEW' ? 'badge-new' : (t.type === 'DEP' ? 'badge-dep' : 'badge-wd');
+      var badgeText = t.type === 'NEW' ? 'NEW' : (t.type === 'DEP' ? 'DEP' : 'WD');
+      var sign = t.type === 'WD' ? '−' : '+';
+      var amtClass = t.type === 'WD' ? 'debit' : 'credit';
+      return '<div class="tape-entry">' +
+        '<div class="tape-top">' +
+          '<span><span class="badge ' + badgeClass + '">' + badgeText + '</span> <span class="tape-acct">№' + t.accountNumber + '</span></span>' +
+          '<span class="tape-amt ' + amtClass + '">' + sign + fmtMoney(t.amount) + '</span>' +
+        '</div>' +
+        '<div class="tape-meta">' + escapeHtml(t.holderName) + ' · bal ' + fmtMoney(t.balanceAfter) + ' · ' + fmtDateTime(t.ts) + '</div>' +
+        '</div>';
+    }).join('');
+  }
+
+  // ---------- handlers ----------
+  function attachViewHandlers(){
+    var el = document.getElementById('mainPanel');
+
+    // generic goto buttons
+    Array.prototype.forEach.call(el.querySelectorAll('[data-action="goto"]'), function(btn){
+      btn.addEventListener('click', function(){
+        var view = btn.getAttribute('data-view');
+        var jump = btn.getAttribute('data-acct-jump');
+        goToView(view, jump || null);
+      });
+    });
+
+    // accounts search
+    var searchInput = document.getElementById('acctSearch');
+    if(searchInput){
+      searchInput.addEventListener('input', function(){
+        window.__acctSearch = searchInput.value;
+        var pos = searchInput.selectionStart;
+        render();
+        var again = document.getElementById('acctSearch');
+        if(again){ again.focus(); again.setSelectionRange(pos, pos); }
+      });
+    }
+
+    // row expand
+    Array.prototype.forEach.call(el.querySelectorAll('[data-action="toggle-detail"]'), function(row){
+      row.addEventListener('click', function(){
+        var acct = parseInt(row.getAttribute('data-acct'), 10);
+        expandedAcct = (expandedAcct === acct) ? null : acct;
+        render();
+      });
+    });
+
+    // forms
+    var newAccountForm = document.getElementById('newAccountForm');
+    if(newAccountForm){
+      newAccountForm.addEventListener('submit', handleNewAccount);
+    }
+    var depositForm = document.getElementById('depositForm');
+    if(depositForm){
+      depositForm.addEventListener('submit', handleDeposit);
+    }
+    var withdrawForm = document.getElementById('withdrawForm');
+    if(withdrawForm){
+      withdrawForm.addEventListener('submit', handleWithdraw);
+    }
+  }
+
+  function showError(id, msg){
+    var el = document.getElementById(id);
+    el.textContent = msg;
+    el.classList.add('show');
+  }
+  function clearError(id){
+    var el = document.getElementById(id);
+    el.textContent = '';
+    el.classList.remove('show');
+  }
+
+  async function handleNewAccount(e){
+    e.preventDefault();
+    clearError('newAccountError');
+    var name = document.getElementById('holderName').value.trim();
+    var depositRaw = document.getElementById('initialDeposit').value;
+    var deposit = parseFloat(depositRaw);
+
+    if(!name){
+      showError('newAccountError', 'Enter the account holder\'s name.');
+      return;
+    }
+    if(depositRaw === '' || isNaN(deposit)){
+      showError('newAccountError', 'Enter a starting deposit amount (0.00 is fine).');
+      return;
+    }
+    if(deposit < 0){
+      showError('newAccountError', 'Initial deposit cannot be negative.');
+      return;
+    }
+
+    var accNo = state.nextAccountNumber;
+    var now = Date.now();
+    state.accounts.push({ accountNumber: accNo, holderName: name, balance: deposit, createdAt: now });
+    state.nextAccountNumber = accNo + 1;
+    state.transactions.push({ id: 't' + now + Math.random().toString(36).slice(2,7), type:'NEW', accountNumber: accNo, holderName: name, amount: deposit, balanceAfter: deposit, ts: now });
+
+    await persist();
+    renderTape();
+
+    document.getElementById('newAccountForm').reset();
+    var stamp = document.getElementById('stampConfirm');
+    document.getElementById('stampAcctNo').textContent = '№ ' + accNo;
+    document.getElementById('stampDetail').textContent = escapeHtml(name) + ' · opened with ' + fmtMoney(deposit);
+    stamp.classList.remove('show');
+    void stamp.offsetWidth;
+    stamp.classList.add('show');
+
+    render();
+    document.getElementById('totalAssetsTop').textContent = fmtMoney(totalAssets());
+  }
+
+  async function handleDeposit(e){
+    e.preventDefault();
+    clearError('depositError');
+    var accNo = parseInt(document.getElementById('depAccount').value, 10);
+    var amount = parseFloat(document.getElementById('depAmount').value);
+
+    if(!accNo){
+      showError('depositError', 'Select an account.');
+      return;
+    }
+    var acc = findAccount(accNo);
+    if(!acc){
+      showError('depositError', 'Account not found.');
+      return;
+    }
+    if(isNaN(amount) || amount <= 0){
+      showError('depositError', 'Deposit amount must be positive.');
+      return;
+    }
+
+    acc.balance += amount;
+    var now = Date.now();
+    state.transactions.push({ id:'t'+now+Math.random().toString(36).slice(2,7), type:'DEP', accountNumber: accNo, holderName: acc.holderName, amount: amount, balanceAfter: acc.balance, ts: now });
+
+    await persist();
+    renderTape();
+
+    prefillAccount = accNo;
+    document.getElementById('depositForm').reset();
+    var stamp = document.getElementById('stampConfirm');
+    document.getElementById('stampAcctNo').textContent = fmtMoney(amount);
+    document.getElementById('stampDetail').textContent = 'Credited to № ' + accNo + ' · new balance ' + fmtMoney(acc.balance);
+    stamp.classList.remove('show');
+    void stamp.offsetWidth;
+    stamp.classList.add('show');
+
+    render();
+  }
+
+  async function handleWithdraw(e){
+    e.preventDefault();
+    clearError('withdrawError');
+    var accNo = parseInt(document.getElementById('wdAccount').value, 10);
+    var amount = parseFloat(document.getElementById('wdAmount').value);
+
+    if(!accNo){
+      showError('withdrawError', 'Select an account.');
+      return;
+    }
+    var acc = findAccount(accNo);
+    if(!acc){
+      showError('withdrawError', 'Account not found.');
+      return;
+    }
+    if(isNaN(amount) || amount <= 0){
+      showError('withdrawError', 'Withdrawal amount must be positive.');
+      return;
+    }
+    if(amount > acc.balance){
+      showError('withdrawError', 'Insufficient funds. Current balance is ' + fmtMoney(acc.balance) + '.');
+      return;
+    }
+
+    acc.balance -= amount;
+    var now = Date.now();
+    state.transactions.push({ id:'t'+now+Math.random().toString(36).slice(2,7), type:'WD', accountNumber: accNo, holderName: acc.holderName, amount: amount, balanceAfter: acc.balance, ts: now });
+
+    await persist();
+    renderTape();
+
+    prefillAccount = accNo;
+    document.getElementById('withdrawForm').reset();
+    var stamp = document.getElementById('stampConfirm');
+    document.getElementById('stampAcctNo').textContent = fmtMoney(amount);
+    document.getElementById('stampDetail').textContent = 'Debited from № ' + accNo + ' · new balance ' + fmtMoney(acc.balance);
+    stamp.classList.remove('show');
+    void stamp.offsetWidth;
+    stamp.classList.add('show');
+
+    render();
+  }
+
+  // ---------- init ----------
+  loadState();
+})();
+</script>
+</body>
+</html>
